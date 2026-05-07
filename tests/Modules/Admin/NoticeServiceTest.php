@@ -245,8 +245,16 @@ class NoticeServiceTest extends TestCase
 
     public function testGetActiveReturnsNewestFirst(): void
     {
-        $this->service->create(['title' => 'First', 'content' => 'C'], $this->userId);
-        $this->service->create(['title' => 'Second', 'content' => 'C'], $this->userId);
+        $this->db->query(
+            "INSERT INTO `notices` (`title`, `content`, `type`, `is_active`, `created_by`, `created_at`)
+             VALUES ('First', 'C', 'informational', 1, ?, '2024-01-01 10:00:00')",
+            [$this->userId]
+        );
+        $this->db->query(
+            "INSERT INTO `notices` (`title`, `content`, `type`, `is_active`, `created_by`, `created_at`)
+             VALUES ('Second', 'C', 'informational', 1, ?, '2024-01-01 11:00:00')",
+            [$this->userId]
+        );
 
         $active = $this->service->getActive();
         // The last inserted should appear first (newest)

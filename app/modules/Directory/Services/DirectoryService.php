@@ -133,13 +133,18 @@ class DirectoryService
 
         if ($search !== null && trim($search) !== '') {
             $conditions[] = "(
-                m.first_name LIKE :search
-                OR m.surname LIKE :search
-                OR CONCAT(m.first_name, ' ', m.surname) LIKE :search
-                OR r.name LIKE :search
-                OR n.name LIKE :search
+                m.first_name LIKE :search1
+                OR m.surname LIKE :search2
+                OR CONCAT(m.first_name, ' ', m.surname) LIKE :search3
+                OR r.name LIKE :search4
+                OR n.name LIKE :search5
             )";
-            $params['search'] = '%' . trim($search) . '%';
+            $like = '%' . trim($search) . '%';
+            $params['search1'] = $like;
+            $params['search2'] = $like;
+            $params['search3'] = $like;
+            $params['search4'] = $like;
+            $params['search5'] = $like;
         }
 
         $where = 'WHERE ' . implode(' AND ', $conditions);

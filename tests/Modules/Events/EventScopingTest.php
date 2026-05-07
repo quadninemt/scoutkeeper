@@ -23,10 +23,18 @@ class EventScopingTest extends TestCase
         }
 
         $this->db->query("SET FOREIGN_KEY_CHECKS = 0");
-        foreach (['events', 'org_nodes'] as $t) {
+        foreach (['events', 'users', 'org_nodes'] as $t) {
             $this->db->query("DROP TABLE IF EXISTS `{$t}`");
         }
         $this->db->query("SET FOREIGN_KEY_CHECKS = 1");
+
+        $this->db->query("CREATE TABLE `users` (
+            `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `email` VARCHAR(255) NOT NULL UNIQUE,
+            `password_hash` VARCHAR(255) NOT NULL DEFAULT '',
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         $this->db->query("CREATE TABLE `org_nodes` (
             `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

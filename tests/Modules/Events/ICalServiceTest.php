@@ -83,7 +83,7 @@ class ICalServiceTest extends TestCase
 
         $pattern = '/^' . preg_quote($propName, '/') . '[;:](.+)$/m';
         if (preg_match($pattern, $unfolded, $m)) {
-            return $m[1];
+            return trim($m[1]);
         }
 
         return null;

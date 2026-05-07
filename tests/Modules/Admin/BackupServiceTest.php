@@ -137,7 +137,7 @@ class BackupServiceTest extends TestCase
 
         $zip = new \ZipArchive();
         $result = $zip->open($path);
-        $this->assertSame(\ZipArchive::ER_OK, $result, 'ZIP should open successfully');
+        $this->assertTrue($result, 'ZIP should open successfully');
 
         $index = $zip->locateName('database.sql');
         $this->assertNotFalse($index, 'ZIP must contain database.sql');

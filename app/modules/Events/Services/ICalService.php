@@ -52,7 +52,7 @@ class ICalService
     public function getTokenForMember(int $memberId): ?array
     {
         $record = $this->db->fetchOne(
-            "SELECT * FROM event_ical_tokens WHERE member_id = :member_id ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM event_ical_tokens WHERE member_id = :member_id ORDER BY created_at DESC, id DESC LIMIT 1",
             ['member_id' => $memberId]
         );
 

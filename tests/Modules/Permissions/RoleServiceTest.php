@@ -202,6 +202,8 @@ class RoleServiceTest extends TestCase
         $row = $this->db->fetchOne('SELECT permissions FROM roles WHERE id = :id', ['id' => $id]);
         $decoded = json_decode($row['permissions'], true);
 
+        ksort($perms);
+        ksort($decoded);
         $this->assertSame($perms, $decoded);
     }
 
