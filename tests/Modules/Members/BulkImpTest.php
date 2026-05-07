@@ -38,7 +38,7 @@ class BulkImpTest extends TestCase
         $this->db->query("DROP TABLE IF EXISTS `member_nodes`");
         $this->db->query("DROP TABLE IF EXISTS `members`");
         $this->db->query("DROP TABLE IF EXISTS `custom_field_definitions`");
-        $this->db->query("DROP TABLE IF EXISTS `org_node_closure`");
+        $this->db->query("DROP TABLE IF EXISTS `org_closure`");
         $this->db->query("DROP TABLE IF EXISTS `org_teams`");
         $this->db->query("DROP TABLE IF EXISTS `org_nodes`");
         $this->db->query("DROP TABLE IF EXISTS `org_level_types`");
