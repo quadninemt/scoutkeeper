@@ -11,7 +11,9 @@ test.describe('Directory & Organogram', () => {
   test('contacts page loads', async ({ page }) => {
     await login(page, 'member');
     await page.goto('/directory/contacts');
-    await expect(page.locator('body')).toContainText(/contact|leader|role/i);
+    // The contacts page heading is "Directory"; the count badge says "N people" / "N person".
+    // These are always present regardless of the member's scope or which roles members hold.
+    await expect(page.locator('body')).toContainText(/directory|people|person/i);
   });
 
   test('organogram shows hierarchy', async ({ page }) => {
