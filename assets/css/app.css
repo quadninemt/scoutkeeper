@@ -77,15 +77,15 @@
 }
 
 [data-bs-theme="dark"] {
-    --sk-accent:        var(--sk-accent-400);
-    --sk-accent-hover:  var(--sk-accent-300);
-    --sk-accent-active: var(--sk-accent-200);
-    --sk-accent-strong: var(--sk-accent-200);
-    --sk-accent-fg:     #1c1033;
-    --sk-accent-rgb:    158, 113, 199;
-    --sk-accent-soft:       rgba(var(--sk-accent-rgb), 0.18);
-    --sk-accent-soft-hover: rgba(var(--sk-accent-rgb), 0.28);
-    --sk-accent-ring:       rgba(var(--sk-accent-rgb), 0.35);
+    --sk-accent:        var(--sk-accent-600);
+    --sk-accent-hover:  var(--sk-accent-500);
+    --sk-accent-active: var(--sk-accent-400);
+    --sk-accent-strong: var(--sk-accent-300);
+    --sk-accent-fg:     #ffffff;
+    --sk-accent-rgb:    88, 47, 135;
+    --sk-accent-soft:       rgba(var(--sk-accent-rgb), 0.22);
+    --sk-accent-soft-hover: rgba(var(--sk-accent-rgb), 0.32);
+    --sk-accent-ring:       rgba(var(--sk-accent-rgb), 0.42);
 
     --sk-surface: #1c1b22;
     --sk-surface-secondary: #14131a;
