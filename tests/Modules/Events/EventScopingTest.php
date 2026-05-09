@@ -84,4 +84,78 @@ class EventScopingTest extends TestCase
         $titles = array_column($svc->getAll(1, 20)['items'], 'title');
         $this->assertCount(3, $titles);
     }
+
+    // ── getForDateRange node scoping ──────────────────────────────────────
+
+    public function testGetForDateRangeWithNullNodeIdsReturnsAllEvents(): void
+    {
+        $svc = new EventService($this->db);
+        $titles = array_column(
+            $svc->getForDateRange('2099-01-01', '2099-01-31'),
+            'title'
+        );
+
+        $this->assertContains('Org', $titles, 'global event must appear');
+        $this->assertContains('A', $titles, 'scoped event must appear when no nodeIds filter (null = no filter)');
+        $this->assertContains('B', $titles, 'scoped event must appear when no nodeIds filter (null = no filter)');
+    }
+
+    public function testGetForDateRangeWithNodeIdIncludesScopedAndGlobalEvents(): void
+    {
+        $svc = new EventService($this->db);
+        $titles = array_column(
+            $svc->getForDateRange('2099-01-01', '2099-01-31', [$this->nodeA]),
+            'title'
+        );
+
+        $this->assertContains('Org', $titles);
+        $this->assertContains('A', $titles);
+        $this->assertNotContains('B', $titles, 'event scoped to a different node must be excluded');
+    }
+
+    public function testGetForDateRangeWithMultipleNodeIdsIncludesAllMatchingScopes(): void
+    {
+        $svc = new EventService($this->db);
+        $titles = array_column(
+            $svc->getForDateRange('2099-01-01', '2099-01-31', [$this->nodeA, $this->nodeB]),
+            'title'
+        );
+
+        $this->assertContains('Org', $titles);
+        $this->assertContains('A', $titles);
+        $this->assertContains('B', $titles);
+    }
+
+    // ── getForMonth node scoping ──────────────────────────────────────────
+
+    public function testGetForMonthWithNullNodeIdsReturnsAllEvents(): void
+    {
+        $svc = new EventService($this->db);
+        $titles = array_column($svc->getForMonth(2099, 1), 'title');
+
+        $this->assertContains('Org', $titles);
+        $this->assertContains('A', $titles, 'scoped event must appear in calendar (null = no scope filter)');
+        $this->assertContains('B', $titles, 'scoped event must appear in calendar (null = no scope filter)');
+    }
+
+    public function testGetForMonthWithNodeIdIncludesScopedAndGlobalEvents(): void
+    {
+        $svc = new EventService($this->db);
+        $titles = array_column($svc->getForMonth(2099, 1, [$this->nodeA]), 'title');
+
+        $this->assertContains('Org', $titles);
+        $this->assertContains('A', $titles);
+        $this->assertNotContains('B', $titles);
+    }
+
+    public function testGetForMonthGlobalEventsVisibleRegardlessOfNodeIds(): void
+    {
+        $svc = new EventService($this->db);
+
+        $withoutNode = array_column($svc->getForMonth(2099, 1), 'title');
+        $withNode    = array_column($svc->getForMonth(2099, 1, [$this->nodeA]), 'title');
+
+        $this->assertContains('Org', $withoutNode);
+        $this->assertContains('Org', $withNode);
+    }
 }

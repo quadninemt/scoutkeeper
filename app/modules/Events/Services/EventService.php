@@ -165,10 +165,10 @@ class EventService
      * Get upcoming published events.
      *
      * Returns published events with start_date >= NOW(), ordered by start_date
-     * ascending. When nodeIds are provided, includes events scoped to those
-     * nodes as well as globally scoped events (node_scope_id IS NULL).
+     * ascending. Pass nodeIds to limit to those nodes + global events; pass
+     * null (default) to return all published events regardless of scope.
      *
-     * @param int[]|null $nodeIds Filter by node scope IDs (null = only globally scoped)
+     * @param int[]|null $nodeIds Nodes to include (null = no filter; [] = global only)
      * @param int $limit Maximum number of events to return
      * @return array List of upcoming events
      */
@@ -198,12 +198,12 @@ class EventService
      * Get published events within a date range.
      *
      * Returns events whose start_date falls within the given range. Used for
-     * calendar views. When nodeIds are provided, includes events scoped to
-     * those nodes as well as globally scoped events.
+     * calendar views. Pass nodeIds to restrict to those nodes + global events;
+     * pass null (default) to return all events regardless of scope.
      *
      * @param string $startDate Range start (Y-m-d or Y-m-d H:i:s)
      * @param string $endDate Range end (Y-m-d or Y-m-d H:i:s)
-     * @param int[]|null $nodeIds Filter by node scope IDs (null = only globally scoped)
+     * @param int[]|null $nodeIds Nodes to include (null = no filter; [] = global only)
      * @return array List of events in the date range
      */
     public function getForDateRange(string $startDate, string $endDate, ?array $nodeIds = null): array
@@ -311,7 +311,7 @@ class EventService
      *
      * @param int $year Four-digit year
      * @param int $month Month number (1-12)
-     * @param int[]|null $nodeIds Filter by node scope IDs (null = only globally scoped)
+     * @param int[]|null $nodeIds Nodes to include (null = no filter; [] = global only)
      * @return array List of events in the month
      */
     public function getForMonth(int $year, int $month, ?array $nodeIds = null): array
@@ -325,17 +325,21 @@ class EventService
     /**
      * Build a SQL condition fragment for node scope filtering.
      *
-     * When nodeIds are provided, matches events scoped to those nodes OR
-     * globally scoped (node_scope_id IS NULL). When nodeIds is null, matches
-     * only globally scoped events.
+     * - null  → no filter; all events (global and scoped) are returned.
+     * - []    → only globally-scoped events (node_scope_id IS NULL).
+     * - [1,2] → events scoped to those nodes OR globally scoped.
      *
-     * @param int[]|null $nodeIds Node IDs to include
+     * @param int[]|null $nodeIds Node IDs to include, or null for no filter
      * @param array &$params Query parameters array (modified in place)
      * @return string SQL fragment to append to WHERE clause
      */
     private function buildNodeScopeCondition(?array $nodeIds, array &$params): string
     {
-        if ($nodeIds !== null && count($nodeIds) > 0) {
+        if ($nodeIds === null) {
+            return '';
+        }
+
+        if (count($nodeIds) > 0) {
             $placeholders = [];
             foreach ($nodeIds as $i => $nodeId) {
                 $key = "node_id_$i";
