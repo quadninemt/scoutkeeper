@@ -48,13 +48,33 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
 ini_set('display_errors', '0');
 date_default_timezone_set($config['app']['timezone'] ?? 'UTC');
 
-// Placeholder: cron handler execution will be implemented with the module registry
-// For now, just record the run
+// Bootstrap the application core (no session/routing) and dispatch cron handlers
+\App\Core\Application::init($config);
+$app = \App\Core\Application::getInstance();
+
+$handlerResults = [];
+$overallStatus = 'ok';
+
+foreach ($app->getModuleRegistry()->getCronHandlers() as $handler) {
+    $handlerName = get_class($handler);
+    try {
+        $handler->execute($app);
+        $handlerResults[$handlerName] = 'ok';
+    } catch (\Throwable $e) {
+        $handlerResults[$handlerName] = 'error: ' . $e->getMessage();
+        $overallStatus = 'error';
+        \App\Core\Logger::error('Cron handler failed', [
+            'handler' => $handlerName,
+            'error' => $e->getMessage(),
+        ]);
+    }
+}
+
 $logEntry = [
     'timestamp' => gmdate('c'),
     'mode' => $isCli ? 'cli' : 'http',
-    'status' => 'ok',
-    'handlers' => [],
+    'status' => $overallStatus,
+    'handlers' => $handlerResults,
 ];
 
 // Update last run timestamp

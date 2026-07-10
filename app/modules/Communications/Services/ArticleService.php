@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Communications\Services;
 
 use App\Core\Database;
+use App\Core\HtmlSanitizer;
 
 /**
  * Article management service.
@@ -44,7 +45,7 @@ class ArticleService
         return $this->db->insert('articles', [
             'title' => trim($data['title']),
             'slug' => $slug,
-            'body' => $data['body'],
+            'body' => HtmlSanitizer::sanitize($data['body']),
             'excerpt' => $data['excerpt'] ?? null,
             'visibility' => $data['visibility'] ?? 'members',
             'is_published' => 0,
@@ -76,7 +77,7 @@ class ArticleService
             if (empty(trim($data['body']))) {
                 throw new \InvalidArgumentException('Body cannot be empty');
             }
-            $updateData['body'] = $data['body'];
+            $updateData['body'] = HtmlSanitizer::sanitize($data['body']);
         }
 
         if (array_key_exists('excerpt', $data)) {

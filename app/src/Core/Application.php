@@ -280,6 +280,13 @@ class Application
 
     public function getDb(): Database
     {
+        if ($this->db === null) {
+            $dbConfig = $this->config['db'];
+            if (isset($this->config['monitoring']['slow_query_threshold_ms'])) {
+                $dbConfig['slow_query_threshold_ms'] = $this->config['monitoring']['slow_query_threshold_ms'];
+            }
+            $this->db = new Database($dbConfig);
+        }
         return $this->db;
     }
 
@@ -305,6 +312,10 @@ class Application
 
     public function getModuleRegistry(): ModuleRegistry
     {
+        if ($this->moduleRegistry === null) {
+            $this->moduleRegistry = new ModuleRegistry();
+            $this->moduleRegistry->loadModules(ROOT_PATH . '/app/modules');
+        }
         return $this->moduleRegistry;
     }
 

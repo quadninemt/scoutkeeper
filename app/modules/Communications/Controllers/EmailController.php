@@ -27,28 +27,9 @@ class EmailController extends Controller
     public function __construct(Application $app)
     {
         parent::__construct($app);
-        $this->emailService = new EmailService($app->getDb(), $this->buildSmtpConfig());
+        $this->emailService = EmailService::create($app);
         $this->prefService = new EmailPreferenceService($app->getDb());
         $this->orgService = new OrgService($app->getDb());
-    }
-
-    /**
-     * Build SMTP config by overlaying DB `smtp` settings onto config.php values.
-     */
-    private function buildSmtpConfig(): array
-    {
-        $fileConfig = $this->app->getConfig()['smtp'] ?? [];
-        $dbConfig = (new SettingsService($this->app->getDb()))->getGroup('smtp');
-
-        return [
-            'host' => (string) ($dbConfig['smtp_host'] ?? $fileConfig['host'] ?? ''),
-            'port' => (int) ($dbConfig['smtp_port'] ?? $fileConfig['port'] ?? 587),
-            'username' => (string) ($dbConfig['smtp_username'] ?? $fileConfig['username'] ?? ''),
-            'password' => (string) ($dbConfig['smtp_password'] ?? $fileConfig['password'] ?? ''),
-            'encryption' => (string) ($dbConfig['smtp_encryption'] ?? $fileConfig['encryption'] ?? 'tls'),
-            'from_email' => (string) ($dbConfig['smtp_from_email'] ?? $fileConfig['from_email'] ?? 'noreply@localhost'),
-            'from_name' => (string) ($dbConfig['smtp_from_name'] ?? $fileConfig['from_name'] ?? 'ScoutKeeper'),
-        ];
     }
 
     /**

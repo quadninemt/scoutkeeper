@@ -29,14 +29,18 @@
         {# input[type=search] natively fires the 'search' event on Enter. #}
         <div class="d-none d-md-flex flex-grow-1 justify-content-center position-relative topbar-search" style="max-width: 400px; margin: 0 auto;">
             <div class="input-group input-group-sm w-100">
-                <span class="input-group-text bg-body border-end-0"><i class="bi bi-search"></i></span>
-                <input type="search" name="search" class="form-control border-start-0"
+                <input type="search" name="search" class="form-control border-end-0"
                        placeholder="{{ t('search.topbar_placeholder') }}"
                        autocomplete="off"
                        hx-get="/search"
                        hx-trigger="keyup changed delay:300ms, search, keyup[key=='Enter']"
                        hx-target="#search-results"
                        hx-sync="this:replace">
+                <button type="button" class="input-group-text bg-body border-start-0 topbar-search-btn"
+                        aria-label="{{ t('search.topbar_placeholder') }}"
+                        hx-get="/search"
+                        hx-include="previous input"
+                        hx-target="#search-results"><i class="bi bi-search"></i></button>
             </div>
             <div id="search-results" class="global-search-results"></div>
         </div>

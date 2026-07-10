@@ -12,11 +12,16 @@ RewriteRule ^data/ - [F,L]
 RewriteRule ^vendor/ - [F,L]
 RewriteRule ^tests/ - [F,L]
 RewriteRule ^docs/ - [F,L]
+RewriteRule ^tools/ - [F,L]
+RewriteRule ^scripts/ - [F,L]
 
 # Allow direct access to specific entry points
 RewriteRule ^updater/run\.php$ - [L]
 RewriteRule ^health\.php$ - [L]
 RewriteRule ^cron/run\.php$ - [L]
+
+# Deny everything else under the updater (run.php is whitelisted above)
+RewriteRule ^updater/ - [F,L]
 
 # Allow direct access to static assets
 RewriteRule ^assets/ - [L]

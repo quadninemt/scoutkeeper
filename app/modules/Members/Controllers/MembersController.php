@@ -114,9 +114,9 @@ class MembersController extends Controller
      */
     public function view(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
-        if ($guard !== null) {
-            return $guard;
+        $authCheck = $this->requireAuth();
+        if ($authCheck !== null) {
+            return $authCheck;
         }
 
         $memberId = (int) $vars['id'];
@@ -126,22 +126,30 @@ class MembersController extends Controller
             return $this->render('errors/404.html.twig', [], 404);
         }
 
-        // Scope access: plan Q15 / Q30. If the viewer is in admin mode and
-        // the record falls outside their active scope, check whether it's
-        // their own (or a family-linked) record — silently redirect into
-        // member mode so they can still see their profile — otherwise
-        // render a friendly scope-error page.
-        $ctx = $this->resolveViewContext();
-        if ($ctx->isAdmin() && !$this->memberService->isMemberInScope($memberId, $ctx)) {
-            $user = $this->app->getSession()->get('user') ?? [];
-            $isOwnRecord = ((int) ($member['user_id'] ?? 0) === (int) ($user['id'] ?? 0));
-            if ($isOwnRecord) {
-                return $this->redirect('/me?mode=member');
-            }
-            return $this->render('errors/403.html.twig', [], 403);
-        }
+        $sessionUser = $this->app->getSession()->get('user') ?? [];
+        $isOwnRecord = !empty($sessionUser['id'])
+            && (int) ($member['user_id'] ?? 0) === (int) $sessionUser['id'];
 
-        if (!$this->canAccessMember($member)) {
+        if ($this->app->getPermissionResolver()->can('members.read')) {
+            // Scope access: plan Q15 / Q30. If the viewer is in admin mode and
+            // the record falls outside their active scope, check whether it's
+            // their own (or a family-linked) record — silently redirect into
+            // member mode so they can still see their profile — otherwise
+            // render a friendly scope-error page.
+            $ctx = $this->resolveViewContext();
+            if ($ctx->isAdmin() && !$this->memberService->isMemberInScope($memberId, $ctx)) {
+                if ($isOwnRecord) {
+                    return $this->redirect('/me?mode=member');
+                }
+                return $this->render('errors/403.html.twig', [], 403);
+            }
+
+            if (!$this->canAccessMember($member)) {
+                return $this->render('errors/403.html.twig', [], 403);
+            }
+        } elseif (!$isOwnRecord) {
+            // Without members.read a user may only view their own record
+            // (reached via /account and /me/profile)
             return $this->render('errors/403.html.twig', [], 403);
         }
 

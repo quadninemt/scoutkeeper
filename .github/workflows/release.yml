@@ -43,6 +43,9 @@ jobs:
           rm -rf tests/
           rm -rf .github/
           rm -rf docs/ideas/
+          rm -rf scripts/
+          rm -rf tools/
+          rm -f bugfile.txt
           rm -f phpunit.xml
           rm -f composer.lock
           find . -name "*.md" ! -name "README.md" ! -name "CONTRIBUTING.md" ! -name "SECURITY.md" -delete

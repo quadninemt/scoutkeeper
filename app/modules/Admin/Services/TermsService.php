@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Admin\Services;
 
 use App\Core\Database;
+use App\Core\HtmlSanitizer;
 
 /**
  * Terms & Conditions versioning service.
@@ -51,7 +52,7 @@ class TermsService
         return $this->db->insert('terms_versions', [
             'policy_id' => (int) $data['policy_id'],
             'title' => trim($data['title']),
-            'content' => $data['content'],
+            'content' => HtmlSanitizer::sanitize($data['content']),
             'version_number' => trim($data['version_number']),
             'grace_period_days' => (int) ($data['grace_period_days'] ?? 14),
             'is_published' => 0,
@@ -80,7 +81,7 @@ class TermsService
             if (empty(trim($data['content']))) {
                 throw new \InvalidArgumentException('Content cannot be empty');
             }
-            $updateData['content'] = $data['content'];
+            $updateData['content'] = HtmlSanitizer::sanitize($data['content']);
         }
 
         if (array_key_exists('version_number', $data)) {

@@ -48,3 +48,5 @@ Thumbs.db
 # Personal / machine-specific files
 /tests/e2e/readme.txt
 /tests/e2e/run.bat
+node_modules/
+test-results/

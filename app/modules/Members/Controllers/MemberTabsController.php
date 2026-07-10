@@ -42,7 +42,7 @@ class MemberTabsController extends Controller
      */
     public function personal(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -62,7 +62,7 @@ class MemberTabsController extends Controller
      */
     public function contact(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -84,14 +84,15 @@ class MemberTabsController extends Controller
      */
     public function medical(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
 
         $memberId = (int) $vars['id'];
         $resolver = $this->app->getPermissionResolver();
-        $hasAccess = $resolver->canAccessMedical();
+        // Members may always see their own medical notes (they can edit them)
+        $hasAccess = $resolver->canAccessMedical() || $this->isOwnRecord($memberId);
 
         $medicalNotes = null;
         if ($hasAccess) {
@@ -115,7 +116,7 @@ class MemberTabsController extends Controller
      */
     public function roles(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -161,7 +162,7 @@ class MemberTabsController extends Controller
      */
     public function timeline(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -182,7 +183,7 @@ class MemberTabsController extends Controller
      */
     public function documents(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -203,7 +204,7 @@ class MemberTabsController extends Controller
      */
     public function additional(Request $request, array $vars): Response
     {
-        $guard = $this->requirePermission('members.read');
+        $guard = $this->guardMemberTab((int) $vars['id']);
         if ($guard !== null) {
             return $guard;
         }
@@ -223,6 +224,47 @@ class MemberTabsController extends Controller
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Guard a member profile tab: members.read grants access to any record;
+     * without it, a member may only load tabs of their own record (mirrors
+     * MembersController::view).
+     */
+    private function guardMemberTab(int $memberId): ?Response
+    {
+        $authCheck = $this->requireAuth();
+        if ($authCheck !== null) {
+            return $authCheck;
+        }
+
+        if ($this->app->getPermissionResolver()->can('members.read')) {
+            return null;
+        }
+
+        if ($this->isOwnRecord($memberId)) {
+            return null;
+        }
+
+        return $this->render('errors/403.html.twig', [], 403);
+    }
+
+    /**
+     * Whether the given member record belongs to the logged-in user.
+     */
+    private function isOwnRecord(int $memberId): bool
+    {
+        $user = $this->app->getSession()->get('user') ?? [];
+        if (empty($user['id'])) {
+            return false;
+        }
+
+        $row = $this->app->getDb()->fetchOne(
+            "SELECT id FROM members WHERE id = :id AND user_id = :uid LIMIT 1",
+            ['id' => $memberId, 'uid' => (int) $user['id']]
+        );
+
+        return $row !== null && $row !== false;
+    }
 
     /**
      * Load member or return 404 response.

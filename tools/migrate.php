@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+// Dev tool — CLI only, never web-accessible
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Forbidden');
+}
+
 require __DIR__ . '/../vendor/autoload.php';
 if (!defined('ROOT_PATH')) {
     define('ROOT_PATH', dirname(__DIR__));
