@@ -44,7 +44,7 @@ test.describe('Journey: organisation admin', () => {
 
     await page.goto('/admin/email');
     await expectNoAccessDenied(page);
-    await expect(page.locator('form')).toBeVisible();
+    await expect(page.locator('main form, form[action*="email"]').first()).toBeVisible();
   });
 
   test('org structure and settings load', async ({ page }) => {
