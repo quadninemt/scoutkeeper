@@ -38,6 +38,7 @@
     "auth.confirm_password": "Confirm Password",
     "auth.login_failed": "Invalid email or password.",
     "auth.login_locked": "Account locked. Please try again later.",
+    "auth.login_throttled": "Too many login attempts. Please try again in a few minutes.",
     "auth.reset_sent": "If that email exists, a reset link has been sent.",
     "auth.reset_expired": "This reset link has expired.",
     "auth.reset_email_subject": "{org} — Password reset request",
