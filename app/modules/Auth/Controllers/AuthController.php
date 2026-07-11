@@ -10,6 +10,7 @@ use App\Core\Response;
 use App\Core\Request;
 use App\Core\Logger;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Communications\Services\EmailService;
 
 /**
  * Authentication controller.
@@ -191,18 +192,19 @@ class AuthController extends Controller
         $user = $this->app->getSession()->get('user');
         $memberId = (int) ($user['member_id'] ?? 0);
 
-        // If the user is linked to a member record, send them there
-        if ($memberId > 0) {
-            return $this->redirect('/members/' . $memberId);
+        // Look up the linked member in the DB if the session doesn't carry it
+        if ($memberId <= 0) {
+            $row = $this->app->getDb()->fetchOne(
+                "SELECT id FROM members WHERE user_id = :uid LIMIT 1",
+                ['uid' => (int) $user['id']]
+            );
+            $memberId = $row ? (int) $row['id'] : 0;
         }
 
-        // Otherwise look it up in the DB (session may be stale)
-        $row = $this->app->getDb()->fetchOne(
-            "SELECT id FROM members WHERE user_id = :uid LIMIT 1",
-            ['uid' => (int) $user['id']]
-        );
-        if ($row && (int) $row['id'] > 0) {
-            return $this->redirect('/members/' . (int) $row['id']);
+        // Send linked members to their own portal profile — the admin member
+        // view (/members/{id}) requires members.read and 403s for regular members
+        if ($memberId > 0) {
+            return $this->redirect('/me/profile');
         }
 
         // No linked member — render a minimal account page
@@ -234,18 +236,44 @@ class AuthController extends Controller
             $token = $this->authService->createPasswordResetToken($email);
 
             if ($token !== null) {
-                // TODO: Send reset email via PHPMailer (Step 2.1 follow-up)
-                // For now, log the token for development/testing
-                Logger::info('Password reset token generated', [
-                    'email' => $email,
-                    'token' => $token,
-                ]);
+                $this->sendResetEmail($email, $token);
             }
         }
 
         // Always show the same message to prevent email enumeration
         $this->flash('success', $this->t('auth.reset_sent'));
         return $this->redirect('/forgot-password');
+    }
+
+    /**
+     * Send the password reset email. Attempts immediate delivery; on
+     * failure the email is queued for the cron email-queue handler to retry.
+     */
+    private function sendResetEmail(string $email, string $token): void
+    {
+        $baseUrl = rtrim((string) $this->app->getConfigValue('app.url', ''), '/');
+        $resetUrl = $baseUrl . '/reset-password/' . $token;
+        $orgName = (string) $this->app->getConfigValue('app.name', 'ScoutKeeper');
+
+        $subject = $this->t('auth.reset_email_subject', ['org' => $orgName]);
+        $bodyHtml = $this->render('@auth/auth/emails/reset_password.html.twig', [
+            'reset_url' => $resetUrl,
+            'org_name' => $orgName,
+        ])->getBody();
+
+        $emailService = EmailService::create($this->app);
+
+        try {
+            if (!$emailService->sendEmail($email, $subject, $bodyHtml)) {
+                throw new \RuntimeException('sendEmail returned false');
+            }
+        } catch (\Throwable $e) {
+            // Queue for retry via cron — the reset token is valid for 1 hour
+            $emailService->queue($email, $subject, $bodyHtml);
+            Logger::error('Password reset email failed, queued for retry', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

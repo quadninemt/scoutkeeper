@@ -54,4 +54,8 @@ return [
         'communications.read' => 'View articles and communications',
         'communications.write' => 'Create, edit, and manage articles and emails',
     ],
+
+    'cron' => [
+        \App\Modules\Communications\Cron\EmailQueueHandler::class,
+    ],
 ];

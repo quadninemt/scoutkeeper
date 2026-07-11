@@ -32,6 +32,32 @@ class EmailService
         $this->config = $config;
     }
 
+    /**
+     * Build an EmailService with the effective SMTP configuration:
+     * DB `smtp` settings overlaid onto config.php values.
+     */
+    public static function create(\App\Core\Application $app): self
+    {
+        $fileConfig = $app->getConfig()['smtp'] ?? [];
+
+        $dbConfig = [];
+        try {
+            $dbConfig = (new \App\Modules\Admin\Services\SettingsService($app->getDb()))->getGroup('smtp');
+        } catch (\Throwable) {
+            // Settings table may not exist yet (setup, tests) — fall back to file config
+        }
+
+        return new self($app->getDb(), [
+            'host' => (string) ($dbConfig['smtp_host'] ?? $fileConfig['host'] ?? ''),
+            'port' => (int) ($dbConfig['smtp_port'] ?? $fileConfig['port'] ?? 587),
+            'username' => (string) ($dbConfig['smtp_username'] ?? $fileConfig['username'] ?? ''),
+            'password' => (string) ($dbConfig['smtp_password'] ?? $fileConfig['password'] ?? ''),
+            'encryption' => (string) ($dbConfig['smtp_encryption'] ?? $fileConfig['encryption'] ?? 'tls'),
+            'from_email' => (string) ($dbConfig['smtp_from_email'] ?? $fileConfig['from_email'] ?? 'noreply@localhost'),
+            'from_name' => (string) ($dbConfig['smtp_from_name'] ?? $fileConfig['from_name'] ?? 'ScoutKeeper'),
+        ]);
+    }
+
     // ──── Queue management ────
 
     /**
