@@ -41,8 +41,11 @@ class Session
         ini_set('session.use_strict_mode', '1');
         ini_set('session.gc_maxlifetime', (string) ($this->config['security']['session_timeout'] ?? 7200));
 
-        // Set secure cookie flag if using HTTPS
-        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        // Set secure cookie flag if using HTTPS — directly or behind a
+        // TLS-terminating proxy (X-Forwarded-Proto)
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        if ($isHttps) {
             ini_set('session.cookie_secure', '1');
         }
 

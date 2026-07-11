@@ -4,6 +4,12 @@
 # Enable rewrite engine
 RewriteEngine On
 
+# Force HTTPS (proxy-aware; skipped for localhost development)
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
 # Deny access to sensitive directories
 RewriteRule ^app/ - [F,L]
 RewriteRule ^config/ - [F,L]
@@ -30,6 +36,12 @@ RewriteRule ^assets/ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L]
+
+# Mark requests as HTTPS when behind a TLS-terminating proxy so the
+# HSTS header (env=HTTPS) is emitted there too
+<IfModule mod_setenvif.c>
+    SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
+</IfModule>
 
 # Security headers
 <IfModule mod_headers.c>

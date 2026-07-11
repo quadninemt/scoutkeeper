@@ -26,7 +26,8 @@ if (file_exists(ROOT_PATH . '/var/maintenance.flag')) {
     if ($uri !== '/setup' && !str_starts_with($uri, '/updater/')) {
         http_response_code(503);
         if (file_exists(ROOT_PATH . '/app/templates/errors/maintenance.html.twig')) {
-            include ROOT_PATH . '/app/templates/errors/maintenance.html';
+            // Plain HTML despite the .twig extension — served directly during maintenance
+            include ROOT_PATH . '/app/templates/errors/maintenance.html.twig';
         } else {
             echo '<!DOCTYPE html><html><head><title>Maintenance</title></head><body><h1>System Maintenance</h1><p>We are performing scheduled maintenance. Please try again shortly.</p></body></html>';
         }

@@ -10,6 +10,7 @@ use App\Core\Response;
 use App\Core\Request;
 use App\Core\Logger;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Auth\Services\LoginThrottleService;
 use App\Modules\Communications\Services\EmailService;
 
 /**
@@ -76,22 +77,23 @@ class AuthController extends Controller
             ]);
         }
 
-        // Check for locked account first (for better UX messaging)
-        $user = $this->app->getDb()->fetchOne(
-            "SELECT * FROM users WHERE email = :email",
-            ['email' => strtolower($email)]
-        );
+        // IP-based throttling — checked before any account lookup
+        $throttle = new LoginThrottleService($this->app->getDb());
+        $clientIp = $request->getClientIp();
 
-        if ($user !== null && $this->authService->isLocked($user)) {
-            $this->flash('error', $this->t('auth.login_locked'));
+        if ($throttle->isThrottled($clientIp)) {
+            $this->flash('error', $this->t('auth.login_throttled'));
             return $this->render('@auth/auth/login.html.twig', [
                 'email' => $email,
-            ]);
+            ], 429);
         }
 
         $authenticatedUser = $this->authService->authenticate($email, $password);
 
         if ($authenticatedUser === null) {
+            // Same message whether the account is unknown, locked, or the
+            // password is wrong — prevents user enumeration
+            $throttle->recordFailure($clientIp);
             $this->flash('error', $this->t('auth.login_failed'));
             return $this->render('@auth/auth/login.html.twig', [
                 'email' => $email,
