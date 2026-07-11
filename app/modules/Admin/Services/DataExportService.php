@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Services;
 
+use App\Core\Csv;
 use App\Core\Database;
 
 /**
@@ -40,13 +41,13 @@ class DataExportService
         }
 
         // Header row
-        fputcsv($handle, [
+        Csv::put($handle, [
             'membership_number', 'first_name', 'surname', 'email', 'phone',
             'dob', 'gender', 'status', 'joined_date', 'node_names',
         ]);
 
         foreach ($members as $row) {
-            fputcsv($handle, [
+            Csv::put($handle, [
                 $row['membership_number'],
                 $row['first_name'],
                 $row['surname'],
@@ -134,71 +135,84 @@ class DataExportService
         // Remove encrypted medical notes from export (sensitive)
         unset($member['medical_notes']);
 
-        fputcsv($handle, ['--- MEMBER PROFILE ---']);
-        fputcsv($handle, array_keys($member));
-        fputcsv($handle, array_values($member));
-        fputcsv($handle, []);
+        Csv::put($handle, ['--- MEMBER PROFILE ---']);
+        Csv::put($handle, array_keys($member));
+        Csv::put($handle, array_values($member));
+        Csv::put($handle, []);
 
         // ── Custom field data ──
-        $customData = $this->db->fetchAll(
-            "SELECT cfd.field_id, cf.label, cfd.value
-             FROM custom_field_data cfd
-             JOIN custom_fields cf ON cf.id = cfd.field_id
-             WHERE cfd.member_id = :id
-             ORDER BY cf.sort_order ASC",
-            ['id' => $memberId]
-        );
+        // Values live in the members.member_custom_data JSON column keyed by
+        // field_key; labels come from custom_field_definitions
+        $customValues = json_decode((string) ($member['member_custom_data'] ?? ''), true) ?: [];
 
-        if (!empty($customData)) {
-            fputcsv($handle, ['--- CUSTOM FIELDS ---']);
-            fputcsv($handle, ['field_id', 'label', 'value']);
-            foreach ($customData as $row) {
-                fputcsv($handle, [$row['field_id'], $row['label'], $row['value']]);
+        if (!empty($customValues)) {
+            $definitions = $this->db->fetchAll(
+                "SELECT field_key, label FROM custom_field_definitions ORDER BY sort_order ASC"
+            );
+            $labels = array_column($definitions, 'label', 'field_key');
+
+            Csv::put($handle, ['--- CUSTOM FIELDS ---']);
+            Csv::put($handle, ['field_key', 'label', 'value']);
+            foreach ($customValues as $fieldKey => $value) {
+                Csv::put($handle, [
+                    $fieldKey,
+                    $labels[$fieldKey] ?? $fieldKey,
+                    is_scalar($value) ? (string) $value : json_encode($value),
+                ]);
             }
-            fputcsv($handle, []);
+            Csv::put($handle, []);
         }
 
         // ── Timeline entries ──
         $timeline = $this->db->fetchAll(
-            "SELECT t.id, t.entry_type, t.title, t.body, t.created_at, u.email AS created_by_email
-             FROM timeline_entries t
-             LEFT JOIN users u ON u.id = t.created_by
+            "SELECT t.id, t.field_key, t.value, t.effective_date, t.notes, t.created_at,
+                    u.email AS recorded_by_email
+             FROM member_timeline t
+             LEFT JOIN users u ON u.id = t.recorded_by
              WHERE t.member_id = :id
-             ORDER BY t.created_at DESC",
+             ORDER BY t.effective_date DESC, t.created_at DESC",
             ['id' => $memberId]
         );
 
         if (!empty($timeline)) {
-            fputcsv($handle, ['--- TIMELINE ---']);
-            fputcsv($handle, ['id', 'entry_type', 'title', 'body', 'created_at', 'created_by_email']);
+            Csv::put($handle, ['--- TIMELINE ---']);
+            Csv::put($handle, ['id', 'field_key', 'value', 'effective_date', 'notes', 'created_at', 'recorded_by_email']);
             foreach ($timeline as $row) {
-                fputcsv($handle, [
-                    $row['id'], $row['entry_type'], $row['title'],
-                    $row['body'], $row['created_at'], $row['created_by_email'] ?? '',
+                Csv::put($handle, [
+                    $row['id'], $row['field_key'], $row['value'], $row['effective_date'],
+                    $row['notes'] ?? '', $row['created_at'], $row['recorded_by_email'] ?? '',
                 ]);
             }
-            fputcsv($handle, []);
+            Csv::put($handle, []);
         }
 
         // ── Role assignments ──
-        $roles = $this->db->fetchAll(
-            "SELECT ra.id, r.name AS role_name, n.name AS node_name,
-                    ra.assigned_at, ra.expires_at
-             FROM role_assignments ra
-             JOIN roles r ON r.id = ra.role_id
-             LEFT JOIN org_nodes n ON n.id = ra.node_id
-             WHERE ra.member_id = :id
-             ORDER BY ra.assigned_at DESC",
-            ['id' => $memberId]
-        );
+        // Assignments hang off the linked user account, scoped to a node or team
+        $roles = [];
+        if (!empty($member['user_id'])) {
+            $roles = $this->db->fetchAll(
+                "SELECT ra.id, r.name AS role_name,
+                        CASE
+                            WHEN ra.context_type = 'node' THEN (SELECT name FROM org_nodes WHERE id = ra.context_id)
+                            WHEN ra.context_type = 'team' THEN (SELECT name FROM org_teams WHERE id = ra.context_id)
+                            ELSE 'Global'
+                        END AS context_name,
+                        ra.start_date, ra.end_date
+                 FROM role_assignments ra
+                 JOIN roles r ON r.id = ra.role_id
+                 WHERE ra.user_id = :uid
+                 ORDER BY ra.start_date DESC",
+                ['uid' => (int) $member['user_id']]
+            );
+        }
 
         if (!empty($roles)) {
-            fputcsv($handle, ['--- ROLE ASSIGNMENTS ---']);
-            fputcsv($handle, ['id', 'role_name', 'node_name', 'assigned_at', 'expires_at']);
+            Csv::put($handle, ['--- ROLE ASSIGNMENTS ---']);
+            Csv::put($handle, ['id', 'role_name', 'context_name', 'start_date', 'end_date']);
             foreach ($roles as $row) {
-                fputcsv($handle, [
-                    $row['id'], $row['role_name'], $row['node_name'] ?? '',
-                    $row['assigned_at'], $row['expires_at'] ?? '',
+                Csv::put($handle, [
+                    $row['id'], $row['role_name'], $row['context_name'] ?? '',
+                    $row['start_date'], $row['end_date'] ?? '',
                 ]);
             }
         }

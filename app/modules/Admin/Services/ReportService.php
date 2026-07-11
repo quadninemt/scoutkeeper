@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Services;
 
+use App\Core\Csv;
 use App\Core\Database;
 
 /**
@@ -274,10 +275,10 @@ class ReportService
         ];
 
         $output = fopen('php://temp', 'r+');
-        fputcsv($output, $headers);
+        Csv::put($output, $headers);
 
         foreach ($members as $member) {
-            fputcsv($output, [
+            Csv::put($output, [
                 $member['membership_number'],
                 $member['first_name'],
                 $member['surname'],
