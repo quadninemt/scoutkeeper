@@ -84,7 +84,7 @@
                         <td class="fw-medium">{{ assignment.role_name }}</td>
                         <td>
                             {% if assignment.context_type %}
-                                <span class="badge bg-light text-dark">{{ assignment.context_type }}: {{ assignment.context_id }}</span>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ assignment.context_type }}: {{ assignment.context_id }}</span>
                             {% else %}
                                 <span class="text-body-secondary">{{ t('permissions.global') }}</span>
                             {% endif %}

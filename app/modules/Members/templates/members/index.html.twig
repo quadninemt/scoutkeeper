@@ -20,19 +20,19 @@
 {# Status filter pills #}
 <div class="d-flex flex-wrap gap-2 mb-3">
     <a href="/members" class="btn btn-sm {{ filters.status == '' ? 'btn-primary' : 'btn-outline-secondary' }}">
-        {{ t('common.all') }} <span class="badge bg-light text-body-secondary ms-1">{{ status_counts.active + status_counts.pending + status_counts.suspended + status_counts.inactive + status_counts.left }}</span>
+        {{ t('common.all') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ status_counts.active + status_counts.pending + status_counts.suspended + status_counts.inactive + status_counts.left }}</span>
     </a>
     <a href="/members?status=active" class="btn btn-sm {{ filters.status == 'active' ? 'btn-success' : 'btn-outline-success' }}">
-        {{ t('members.status_active') }} <span class="badge bg-light text-body-secondary ms-1">{{ status_counts.active }}</span>
+        {{ t('members.status_active') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ status_counts.active }}</span>
     </a>
     <a href="/members?status=pending" class="btn btn-sm {{ filters.status == 'pending' ? 'btn-warning' : 'btn-outline-warning' }}">
-        {{ t('members.status_pending') }} <span class="badge bg-light text-body-secondary ms-1">{{ status_counts.pending }}</span>
+        {{ t('members.status_pending') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ status_counts.pending }}</span>
     </a>
     <a href="/members?status=suspended" class="btn btn-sm {{ filters.status == 'suspended' ? 'btn-danger' : 'btn-outline-danger' }}">
-        {{ t('members.status_suspended') }} <span class="badge bg-light text-body-secondary ms-1">{{ status_counts.suspended }}</span>
+        {{ t('members.status_suspended') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ status_counts.suspended }}</span>
     </a>
     <a href="/members?status=inactive" class="btn btn-sm {{ filters.status == 'inactive' ? 'btn-secondary' : 'btn-outline-secondary' }}">
-        {{ t('members.status_inactive') }} <span class="badge bg-light text-body-secondary ms-1">{{ status_counts.inactive }}</span>
+        {{ t('members.status_inactive') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ status_counts.inactive }}</span>
     </a>
 </div>
 

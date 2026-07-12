@@ -13,19 +13,19 @@
 {# Status filter pills #}
 <div class="d-flex flex-wrap gap-2 mb-3">
     <a href="/admin/waiting-list" class="btn btn-sm {{ filters.status is null ? 'btn-primary' : 'btn-outline-secondary' }}">
-        {{ t('common.all') }} <span class="badge bg-light text-body-secondary ms-1">{{ counts.waiting + counts.contacted + counts.converted + counts.withdrawn }}</span>
+        {{ t('common.all') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ counts.waiting + counts.contacted + counts.converted + counts.withdrawn }}</span>
     </a>
     <a href="/admin/waiting-list?status=waiting" class="btn btn-sm {{ filters.status == 'waiting' ? 'btn-warning' : 'btn-outline-warning' }}">
-        {{ t('registration.wl_waiting') }} <span class="badge bg-light text-body-secondary ms-1">{{ counts.waiting }}</span>
+        {{ t('registration.wl_waiting') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ counts.waiting }}</span>
     </a>
     <a href="/admin/waiting-list?status=contacted" class="btn btn-sm {{ filters.status == 'contacted' ? 'btn-info' : 'btn-outline-info' }}">
-        {{ t('registration.wl_contacted') }} <span class="badge bg-light text-body-secondary ms-1">{{ counts.contacted }}</span>
+        {{ t('registration.wl_contacted') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ counts.contacted }}</span>
     </a>
     <a href="/admin/waiting-list?status=converted" class="btn btn-sm {{ filters.status == 'converted' ? 'btn-success' : 'btn-outline-success' }}">
-        {{ t('registration.wl_converted') }} <span class="badge bg-light text-body-secondary ms-1">{{ counts.converted }}</span>
+        {{ t('registration.wl_converted') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ counts.converted }}</span>
     </a>
     <a href="/admin/waiting-list?status=withdrawn" class="btn btn-sm {{ filters.status == 'withdrawn' ? 'btn-secondary' : 'btn-outline-secondary' }}">
-        {{ t('registration.wl_withdrawn') }} <span class="badge bg-light text-body-secondary ms-1">{{ counts.withdrawn }}</span>
+        {{ t('registration.wl_withdrawn') }} <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">{{ counts.withdrawn }}</span>
     </a>
 </div>
 
