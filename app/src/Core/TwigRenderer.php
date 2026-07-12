@@ -242,5 +242,13 @@ class TwigRenderer
             }
             return $datetime->format($format);
         }));
+
+        // JSON decoding: {{ jsonString|json_decode }} → associative array
+        $this->twig->addFilter(new TwigFilter('json_decode', function (?string $json): mixed {
+            if ($json === null || $json === '') {
+                return [];
+            }
+            return json_decode($json, true) ?? [];
+        }));
     }
 }
