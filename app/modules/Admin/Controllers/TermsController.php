@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Application;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Csv;
 use App\Modules\Admin\Services\TermsService;
 use App\Modules\Admin\Services\PoliciesService;
 use App\Modules\OrgStructure\Services\OrgService;
@@ -281,9 +282,9 @@ class TermsController extends Controller
         $report = $this->policiesService->getAcknowledgementReport($id);
 
         $fh = fopen('php://temp', 'w+');
-        fputcsv($fh, ['Membership #', 'First Name', 'Surname', 'Email', 'Acknowledged', 'Accepted At']);
+        Csv::put($fh, ['Membership #', 'First Name', 'Surname', 'Email', 'Acknowledged', 'Accepted At']);
         foreach ($report as $row) {
-            fputcsv($fh, [
+            Csv::put($fh, [
                 $row['membership_number'],
                 $row['first_name'],
                 $row['surname'],

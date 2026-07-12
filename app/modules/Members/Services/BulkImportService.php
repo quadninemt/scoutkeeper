@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Members\Services;
 
+use App\Core\Csv;
 use App\Core\Database;
 
 /**
@@ -52,13 +53,13 @@ class BulkImportService
         }
 
         $output = fopen('php://temp', 'r+');
-        fputcsv($output, $headers);
+        Csv::put($output, $headers);
 
         // Add an example row as guidance
         $example = array_fill(0, count($headers), '');
         $example[0] = 'John'; // first_name
         $example[1] = 'Doe';  // surname
-        fputcsv($output, $example);
+        Csv::put($output, $example);
 
         rewind($output);
         $csv = stream_get_contents($output);
@@ -87,7 +88,7 @@ class BulkImportService
         }
 
         // Read header row
-        $headers = fgetcsv($handle);
+        $headers = Csv::get($handle);
         if ($headers === false || empty($headers)) {
             fclose($handle);
             throw new \InvalidArgumentException("CSV file has no headers.");
@@ -107,7 +108,7 @@ class BulkImportService
         $rowNum = 1; // Header is row 0
         $seenEmails = [];
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = Csv::get($handle)) !== false) {
             $rowNum++;
 
             // Skip completely empty rows

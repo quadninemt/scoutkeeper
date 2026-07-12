@@ -30,6 +30,9 @@ jobs:
       - name: Run PHP_CodeSniffer
         run: vendor/bin/phpcs --standard=PSR12 --extensions=php -n app/ config/ cron/ lang/ scripts/ updater/ index.php
 
+      - name: Audit dependencies for known vulnerabilities
+        run: composer audit
+
   test:
     name: PHPUnit (PHP ${{ matrix.php-version }})
     runs-on: ubuntu-latest
@@ -87,6 +90,92 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
 
-# Playwright E2E intentionally not run in CI — executed locally against
-# the WSL test installation instead. See tests/e2e/README or run
-# `cd tests/e2e && npx playwright test` manually.
+  e2e:
+    name: Playwright E2E (chromium)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: scoutkeeper_e2e
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo, pdo_mysql, mbstring, intl
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h 127.0.0.1 --silent; do
+            sleep 1
+          done
+
+      - name: Create application config
+        run: |
+          sed -e "s/'host' => 'localhost'/'host' => '127.0.0.1'/" \
+              -e "s/'name' => 'scoutkeeper'/'name' => 'scoutkeeper_e2e'/" \
+              -e "s/'user' => 'sk_user'/'user' => 'root'/" \
+              -e "s/'password' => ''/'password' => 'root'/" \
+              -e "s#'url' => 'https://your-domain.com'#'url' => 'http://127.0.0.1:8080'#" \
+              config/config.example.php > config/config.php
+          head -c 32 /dev/urandom | base64 > config/encryption.key
+
+      - name: Run migrations and seed
+        run: |
+          php tools/migrate.php
+          php tests/seed.php
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: scoutkeeper_e2e
+          DB_USERNAME: root
+          DB_PASSWORD: root
+
+      - name: Start PHP server
+        run: |
+          php -S 127.0.0.1:8080 -t . > /tmp/php-server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf -o /dev/null http://127.0.0.1:8080/login && break
+            sleep 1
+          done
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Playwright
+        working-directory: tests/e2e
+        run: |
+          npm ci || npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: tests/e2e
+        run: npx playwright test --project=chromium
+        env:
+          BASE_URL: http://127.0.0.1:8080
+          CI: "1"
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: tests/e2e/test-results/
+          retention-days: 7

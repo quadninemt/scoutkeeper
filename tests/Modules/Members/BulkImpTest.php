@@ -165,7 +165,7 @@ class BulkImpTest extends TestCase
     {
         $csv = $this->service->generateTemplate(1);
         $lines = explode("\n", trim($csv));
-        $headers = str_getcsv($lines[0]);
+        $headers = str_getcsv($lines[0], ',', '"', '\\');
 
         $this->assertContains('first_name', $headers);
         $this->assertContains('surname', $headers);
@@ -188,7 +188,7 @@ class BulkImpTest extends TestCase
 
         $csv = $this->service->generateTemplate(1);
         $lines = explode("\n", trim($csv));
-        $headers = str_getcsv($lines[0]);
+        $headers = str_getcsv($lines[0], ',', '"', '\\');
 
         $this->assertContains('custom_shirt_size', $headers);
     }
@@ -199,7 +199,7 @@ class BulkImpTest extends TestCase
         $lines = explode("\n", trim($csv));
 
         $this->assertGreaterThanOrEqual(2, count($lines));
-        $example = str_getcsv($lines[1]);
+        $example = str_getcsv($lines[1], ',', '"', '\\');
         $this->assertSame('John', $example[0]);
         $this->assertSame('Doe', $example[1]);
     }

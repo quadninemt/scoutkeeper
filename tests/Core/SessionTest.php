@@ -269,7 +269,6 @@ class SessionTest extends TestCase
     private function invokeCheckTimeout(Session $session): void
     {
         $method = new \ReflectionMethod(Session::class, 'checkTimeout');
-        $method->setAccessible(true);
         $method->invoke($session);
     }
 
@@ -290,7 +289,6 @@ class SessionTest extends TestCase
         // Mark the instance as started so destroy() and the recursive start()
         // inside checkTimeout behave correctly without calling session_start() again.
         $startedProp = new \ReflectionProperty(Session::class, 'started');
-        $startedProp->setAccessible(true);
         $startedProp->setValue($session, true);
 
         $this->invokeCheckTimeout($session);
@@ -312,7 +310,6 @@ class SessionTest extends TestCase
         $session = new Session($this->config);
 
         $startedProp = new \ReflectionProperty(Session::class, 'started');
-        $startedProp->setAccessible(true);
         $startedProp->setValue($session, true);
 
         $this->invokeCheckTimeout($session);
