@@ -32,16 +32,28 @@ class LoginThrottleService
 
     /**
      * Whether login processing should be refused for this IP.
+     *
+     * Fails open: if the backing table is missing or the query errors
+     * (e.g. a migration hasn't run yet after an update), throttling is
+     * skipped rather than taking down login entirely. The per-account
+     * lockout in AuthService still applies as a second layer.
      */
     public function isThrottled(string $ip): bool
     {
         $windowStart = gmdate('Y-m-d H:i:s', time() - self::WINDOW_MINUTES * 60);
 
-        $count = (int) $this->db->fetchColumn(
-            "SELECT COUNT(*) FROM login_attempts
-             WHERE ip_address = :ip AND attempted_at >= :since",
-            ['ip' => $ip, 'since' => $windowStart]
-        );
+        try {
+            $count = (int) $this->db->fetchColumn(
+                "SELECT COUNT(*) FROM login_attempts
+                 WHERE ip_address = :ip AND attempted_at >= :since",
+                ['ip' => $ip, 'since' => $windowStart]
+            );
+        } catch (\Throwable $e) {
+            Logger::error('Login throttle check failed; allowing login (fail-open)', [
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
 
         if ($count >= self::MAX_ATTEMPTS_PER_IP) {
             Logger::warning('Login throttled for IP', ['ip' => $ip, 'attempts' => $count]);
@@ -53,15 +65,22 @@ class LoginThrottleService
 
     /**
      * Record a failed login attempt for this IP and prune old entries.
+     *
+     * Fails silently: a recording error must never surface as a login
+     * failure to the user (see isThrottled for rationale).
      */
     public function recordFailure(string $ip): void
     {
-        $this->db->insert('login_attempts', ['ip_address' => $ip]);
+        try {
+            $this->db->insert('login_attempts', ['ip_address' => $ip]);
 
-        // Opportunistic cleanup — the table stays small without a cron task
-        $this->db->query(
-            "DELETE FROM login_attempts WHERE attempted_at < :cutoff",
-            ['cutoff' => gmdate('Y-m-d H:i:s', time() - 86400)]
-        );
+            // Opportunistic cleanup — the table stays small without a cron task
+            $this->db->query(
+                "DELETE FROM login_attempts WHERE attempted_at < :cutoff",
+                ['cutoff' => gmdate('Y-m-d H:i:s', time() - 86400)]
+            );
+        } catch (\Throwable $e) {
+            Logger::error('Login throttle record failed', ['error' => $e->getMessage()]);
+        }
     }
 }

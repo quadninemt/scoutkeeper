@@ -47,6 +47,27 @@ class LoginThrottleTest extends TestCase
         $this->assertFalse($this->service->isThrottled('198.51.100.1'));
     }
 
+    /**
+     * Regression for the demo-outage incident: if the login_attempts table
+     * is missing (e.g. a migration hasn't run after an update), throttling
+     * must fail open rather than 500 the login page.
+     */
+    public function testIsThrottledFailsOpenWhenTableMissing(): void
+    {
+        $this->db->query("DROP TABLE IF EXISTS `login_attempts`");
+
+        $this->assertFalse($this->service->isThrottled('198.51.100.1'));
+    }
+
+    public function testRecordFailureSwallowsErrorWhenTableMissing(): void
+    {
+        $this->db->query("DROP TABLE IF EXISTS `login_attempts`");
+
+        // Must not throw
+        $this->service->recordFailure('198.51.100.1');
+        $this->assertTrue(true);
+    }
+
     public function testNotThrottledBelowLimit(): void
     {
         for ($i = 0; $i < 19; $i++) {
