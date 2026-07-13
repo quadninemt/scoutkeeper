@@ -243,6 +243,109 @@ class UpdateManagerTest extends TestCase
         $this->assertFalse($this->updater->rollback());
     }
 
+    // ── runMigrations (regression: demo-outage bug) ─────────────────
+    //
+    // The updater previously ran migrations via `new \App\Setup\SetupWizard(...)`
+    // without loading the Composer autoloader — this always threw "Class
+    // not found" and silently no-opped, so no auto-update ever applied its
+    // migrations. runMigrations() must be self-contained (raw PDO only,
+    // no /app or vendor dependency) per this class's own design docblock.
+
+    public function testRunMigrationsAppliesPendingFilesAndTracksThem(): void
+    {
+        try {
+            $pdo = new \PDO(
+                sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', TEST_CONFIG['db']['host'], TEST_CONFIG['db']['port'], TEST_CONFIG['db']['name']),
+                TEST_CONFIG['db']['user'],
+                TEST_CONFIG['db']['password'],
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (\PDOException $e) {
+            $this->markTestSkipped('Test database not available: ' . $e->getMessage());
+        }
+
+        $pdo->exec('DROP TABLE IF EXISTS `_migrations`');
+        $pdo->exec('DROP TABLE IF EXISTS `updater_test_widgets`');
+
+        mkdir($this->tempDir . '/app/migrations', 0755, true);
+        file_put_contents(
+            $this->tempDir . '/app/migrations/0001_widgets.sql',
+            "CREATE TABLE `updater_test_widgets` (`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, `name` VARCHAR(50) NOT NULL);\n"
+            . "INSERT INTO `updater_test_widgets` (`name`) VALUES ('seed');"
+        );
+
+        $method = new \ReflectionMethod(UpdateManager::class, 'runMigrations');
+        $applied = $method->invoke($this->updater, $pdo);
+
+        $this->assertSame(['0001_widgets.sql'], $applied);
+
+        $tracked = $pdo->query("SELECT filename FROM `_migrations`")->fetchAll(\PDO::FETCH_COLUMN);
+        $this->assertSame(['0001_widgets.sql'], $tracked);
+
+        $rowCount = (int) $pdo->query("SELECT COUNT(*) FROM `updater_test_widgets`")->fetchColumn();
+        $this->assertSame(1, $rowCount);
+
+        $pdo->exec('DROP TABLE IF EXISTS `updater_test_widgets`');
+        $pdo->exec('DROP TABLE IF EXISTS `_migrations`');
+    }
+
+    public function testRunMigrationsSkipsAlreadyAppliedFiles(): void
+    {
+        try {
+            $pdo = new \PDO(
+                sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', TEST_CONFIG['db']['host'], TEST_CONFIG['db']['port'], TEST_CONFIG['db']['name']),
+                TEST_CONFIG['db']['user'],
+                TEST_CONFIG['db']['password'],
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (\PDOException $e) {
+            $this->markTestSkipped('Test database not available: ' . $e->getMessage());
+        }
+
+        $pdo->exec('DROP TABLE IF EXISTS `_migrations`');
+        $pdo->exec("
+            CREATE TABLE `_migrations` (
+                `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `filename` VARCHAR(255) NOT NULL UNIQUE,
+                `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        $pdo->exec("INSERT INTO `_migrations` (`filename`) VALUES ('0001_widgets.sql')");
+
+        mkdir($this->tempDir . '/app/migrations', 0755, true);
+        // If this ran, it would fail (table already exists) — proves it was skipped
+        file_put_contents(
+            $this->tempDir . '/app/migrations/0001_widgets.sql',
+            "CREATE TABLE `updater_test_widgets_dup` (`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY);"
+        );
+
+        $method = new \ReflectionMethod(UpdateManager::class, 'runMigrations');
+        $applied = $method->invoke($this->updater, $pdo);
+
+        $this->assertSame([], $applied);
+
+        $pdo->exec('DROP TABLE IF EXISTS `_migrations`');
+    }
+
+    // ── syncPayload (regression: vendor/ never updated) ─────────────
+
+    public function testSyncPayloadSwapsVendorDirectory(): void
+    {
+        $extractRoot = $this->tempDir . '/extract';
+        mkdir($extractRoot . '/vendor', 0755, true);
+        file_put_contents($extractRoot . '/vendor/marker.txt', 'new-vendor');
+
+        // Simulate an existing (old) vendor/ at the install root
+        mkdir($this->tempDir . '/vendor', 0755, true);
+        file_put_contents($this->tempDir . '/vendor/marker.txt', 'old-vendor');
+
+        $method = new \ReflectionMethod(UpdateManager::class, 'syncPayload');
+        $method->invoke($this->updater, $extractRoot);
+
+        $this->assertFileExists($this->tempDir . '/vendor/marker.txt');
+        $this->assertSame('new-vendor', file_get_contents($this->tempDir . '/vendor/marker.txt'));
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────
 
     private function removeDir(string $dir): void
