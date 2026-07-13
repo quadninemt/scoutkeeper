@@ -246,8 +246,7 @@ class UpdateManager
             // Step 4: Run migrations
             try {
                 $pdo = $this->createPdo($config['db']);
-                $wizard = new \App\Setup\SetupWizard($this->rootPath);
-                $applied = $wizard->runMigrations($pdo);
+                $applied = $this->runMigrations($pdo);
                 $steps[] = 'migrations_run';
                 if (!empty($applied)) {
                     $steps[] = 'migrations_applied: ' . implode(', ', $applied);
@@ -534,17 +533,136 @@ class UpdateManager
     }
 
     /**
+     * Apply pending migrations from /app/migrations/ via raw PDO.
+     *
+     * Deliberately self-contained (no dependency on App\Core\Migration or
+     * App\Setup\SetupWizard) — per this class's design, the updater must
+     * not depend on any class inside /app/, since /app/ has just been
+     * swapped and vendor/ is not synced by the updater. Tracks applied
+     * migrations in the same `_migrations` table used by the main app's
+     * migration runner and the setup wizard, so history stays consistent
+     * across install, manual `tools/migrate.php` runs, and auto-updates.
+     *
+     * @return array<string> Filenames of newly applied migrations
+     */
+    private function runMigrations(\PDO $pdo): array
+    {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `_migrations` (
+                `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `filename` VARCHAR(255) NOT NULL UNIQUE,
+                `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $appliedStmt = $pdo->query("SELECT filename FROM `_migrations`");
+        $applied = $appliedStmt !== false ? $appliedStmt->fetchAll(\PDO::FETCH_COLUMN) : [];
+
+        $migrationsPath = $this->rootPath . '/app/migrations';
+        $files = glob($migrationsPath . '/*.sql') ?: [];
+        $files = array_map('basename', $files);
+        sort($files);
+
+        $pending = array_values(array_diff($files, $applied));
+        $newlyApplied = [];
+
+        foreach ($pending as $filename) {
+            $sql = file_get_contents($migrationsPath . '/' . $filename);
+            if ($sql === false || trim($sql) === '') {
+                throw new \RuntimeException("Migration file is empty or unreadable: $filename");
+            }
+
+            foreach ($this->splitSqlStatements($sql) as $statement) {
+                if (trim($statement) !== '') {
+                    $pdo->exec($statement);
+                }
+            }
+
+            $insert = $pdo->prepare("INSERT INTO `_migrations` (`filename`) VALUES (:filename)");
+            $insert->execute(['filename' => $filename]);
+
+            $newlyApplied[] = $filename;
+        }
+
+        return $newlyApplied;
+    }
+
+    /**
+     * Split a SQL file into individual statements, respecting quoted
+     * strings and line comments. Mirrors App\Core\Migration::splitStatements.
+     *
+     * @return array<string>
+     */
+    private function splitSqlStatements(string $sql): array
+    {
+        $statements = [];
+        $current = '';
+        $inString = false;
+        $stringChar = '';
+
+        for ($i = 0, $len = strlen($sql); $i < $len; $i++) {
+            $char = $sql[$i];
+
+            if ($inString) {
+                $current .= $char;
+                if ($char === $stringChar && ($i === 0 || $sql[$i - 1] !== '\\')) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '\'' || $char === '"') {
+                $inString = true;
+                $stringChar = $char;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '-' && ($sql[$i + 1] ?? '') === '-') {
+                $end = strpos($sql, "\n", $i);
+                if ($end === false) {
+                    break;
+                }
+                $i = $end;
+                continue;
+            }
+
+            if ($char === ';') {
+                $trimmed = trim($current);
+                if ($trimmed !== '') {
+                    $statements[] = $trimmed;
+                }
+                $current = '';
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        $trimmed = trim($current);
+        if ($trimmed !== '') {
+            $statements[] = $trimmed;
+        }
+
+        return $statements;
+    }
+
+    /**
      * Sync non-/app/ payload from the extracted release into the install root.
      *
-     * Shipped directories (lang, assets, cron, updater) are swapped via rename
-     * for a clean replace. Shipped root files (VERSION, index.php, .htaccess,
-     * composer.json, composer.lock) are copied over in place. User/runtime
-     * directories — config/, data/, var/, backups/, vendor/, tests/ — are
-     * never touched. Anything absent from the extract is left alone.
+     * Shipped directories (lang, assets, cron, updater, vendor) are swapped
+     * via rename for a clean replace. vendor/ must track the release like
+     * /app/ does — new Composer dependencies (e.g. a new sanitizer library)
+     * are meaningless if the code shipped to use them but the library
+     * shipped in the zip never reaches the install. Shipped root files
+     * (VERSION, index.php, .htaccess, composer.json, composer.lock) are
+     * copied over in place. User/runtime directories — config/, data/,
+     * var/, backups/, tests/ — are never touched. Anything absent from the
+     * extract is left alone.
      */
     private function syncPayload(string $extractRoot): void
     {
-        $dirs = ['lang', 'assets', 'cron', 'updater'];
+        $dirs = ['lang', 'assets', 'cron', 'updater', 'vendor'];
         foreach ($dirs as $d) {
             $src = $extractRoot . '/' . $d;
             if (!is_dir($src)) {
